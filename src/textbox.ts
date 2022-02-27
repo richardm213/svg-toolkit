@@ -8,22 +8,24 @@ import {
   InputType,
 } from "./core";
 // importing code from SVG.js library
-import { SVG, Svg, G, Rect, Container, Text, Box } from "./core";
+import { SVG, Svg, G, Rect, Container, Text, Box, Line } from "./core";
 
-class Button extends Widget {
+class TextBox extends Widget {
   private _rect: Rect;
   private _group: G;
+  private _line: Line;
   private _text: Text;
   private _input: string;
   private _fontSize: number;
   private _text_y: number;
   private _text_x: number;
-  private defaultText: string = "Button";
+  private defaultText: string = "Textbox";
   private defaultFontSize: number = 18;
-  private defaultWidth: number = 80;
+  private defaultWidth: number = 450;
   private defaultHeight: number = 30;
   private defaultColor: string = "#0884fc";
-  private lightColor: string = "#51a8fd";
+  private typing: boolean = false;
+  private _currentText: string;
 
   constructor(parent: Window) {
     super(parent);
@@ -31,17 +33,22 @@ class Button extends Widget {
     this.width = this.defaultWidth;
     this._input = this.defaultText;
     this._fontSize = this.defaultFontSize;
+    this._currentText = this.defaultText;
     this.render();
     this.idleupstate();
   }
 
   set text(text: string) {
-    this._input = text;
+    this._currentText = text;
     this.update();
   }
 
   get text(): string {
-    return this._input;
+    return this._currentText;
+  }
+
+  get currentText(): string {
+    return this._currentText;
   }
 
   set fontSize(size: number) {
@@ -52,7 +59,7 @@ class Button extends Widget {
   private positionText() {
     let box: Box = this._text.bbox();
     this._text_y = +this._rect.y() + +this._rect.height() / 2 - box.height / 2;
-    this._text.x(+this._rect.x() + 13);
+    this._text.x(+this._rect.x() + 4);
     if (this._text_y > 0) {
       this._text.y(this._text_y);
     }
@@ -72,17 +79,21 @@ class Button extends Widget {
       .text(this._input)
       .fill("white")
       .font({ family: "Helvetica" });
+    this._line = this._group
+      .line(this._text.length() + 5, 5, this._text.length() + 5, 25)
+      .stroke({ color: "white", width: 2 });
     this._group
       .rect(this.width, this.height)
-      .opacity(0)
-      .stroke({ color: "black", width: 3 });
+      .stroke({ color: "black", width: 2 })
+      .opacity(0);
     this.registerEvent(this._group);
-    this.registerEvent(this._rect);
+    // this.registerEvent(this._rect);
   }
 
   update(): void {
     if (this._text != null) this._text.font("size", this._fontSize);
-    this._text.text(this._input);
+    this._text.text(this._currentText);
+    this._line.x(+this._rect.x() + this._text.length() + 5);
     this.positionText();
     if (this._rect != null) this._rect.fill(this.backcolor);
   }
@@ -123,29 +134,45 @@ class Button extends Widget {
       } else if (this.currentState() == States.Pressed) {
         this.current = States.PressedOut;
       }
+    } else if (inputType == InputType.KeyPress) {
+      if (this.handletyping(event)) {
+        this.raise(inputType, event);
+      }
     }
-    if (previous != this.currentState()) {
+    if (inputType != InputType.KeyPress && previous != this.currentState()) {
       this.raise(inputType, event);
     }
   }
 
   private hoverstate() {
-    this._rect.stroke({ width: 3 });
-    this.backcolor = this.lightColor;
+    this._line.opacity(100);
+    this.typing = true;
   }
-  private pressrelease() {
-    this._rect.stroke("black");
-    this._text.dx(-0.5);
-  }
+  private pressrelease() {}
   private idleupstate() {
-    this._rect.stroke({ width: 2 });
+    this._line.opacity(0);
+    this.typing = false;
     this.backcolor = this.defaultColor;
+    this.text = this._currentText;
   }
-  private pressedstate() {
-    this.backcolor = this.defaultColor;
-    this._rect.stroke("lightgray");
-    this._text.dx(0.5);
+  private pressedstate() {}
+  private handletyping(event: any) {
+    var changedtext = false;
+    if (this.typing) {
+      if (event.key == "Backspace") {
+        if (this._currentText.length >= 1) {
+          this._currentText = this._currentText.slice(0, -1);
+          changedtext = true;
+        }
+      } else if (event.key != "Shift" && event.key != "CapsLock") {
+        if (+this._line.x() + 10 < +this._rect.x() + this.width) {
+          this._currentText = this._currentText + event.key;
+          changedtext = true;
+        }
+      }
+      this.text = this._currentText;
+    }
+    return changedtext;
   }
 }
-
-export { Button };
+export { TextBox };
